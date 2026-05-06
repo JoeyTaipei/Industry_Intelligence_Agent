@@ -1,6 +1,6 @@
 # Industry Intelligence Agent
 
-Python MVP for a Deloitte Digital Technology Intern interview.
+Python MVP for Intern interview.
 
 The main project lives in:
 
