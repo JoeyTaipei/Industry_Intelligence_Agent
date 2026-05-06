@@ -2,7 +2,7 @@
 
 **Industry Intelligence Agent turns news, annual reports, company registry data, and industry trend notes into KRI evidence, Excel reports, and consulting-style insights.**
 
-**中文：一個用 Python 建立的產業情報分析 MVP，可將新聞、年報、公司基本資料與產業趨勢整理成 KRI 風險證據、Excel 報表與顧問式商業洞察。**
+**一個用 Python 建立的產業情報分析 MVP，可將新聞、年報、公司基本資料與產業趨勢整理成 KRI 風險證據、Excel 報表與顧問式商業洞察。**
 
 Python MVP for a Deloitte Digital Technology Intern interview.
 
