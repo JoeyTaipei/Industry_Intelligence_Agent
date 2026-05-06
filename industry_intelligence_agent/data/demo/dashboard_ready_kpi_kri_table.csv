@@ -1,0 +1,12 @@
+metric_group,metric_name,value,unit,evidence_type,source,business_implication,商業意涵
+Industry Intelligence Brief,companies_covered,7,count,Fact,sample_company_registry.csv,Covers the core Taiwan semiconductor AI server ecosystem and adjacent financial services context.,涵蓋台灣半導體 AI server 生態系與金融服務風險脈絡。
+Business Signal Extraction,sample_news_count,6,count,Fact,sample_news_articles.csv,External signals show AI server growth plus risk themes around supply chain working capital and geopolitical uncertainty.,外部訊號顯示 AI server 成長，同時伴隨供應鏈、營運資金與地緣政治風險。
+KRI Evidence Table,kri_mention_count,7,count,Fact,sample_kri_extraction_results.csv,KRI evidence creates a review queue for analyst validation and client interview planning.,KRI 證據可作為分析師審閱與客戶訪談規劃清單。
+KRI Evidence Table,high_severity_kri_count,1,count,Fact,sample_kri_extraction_results.csv,High-severity evidence should be validated first with management and operating data.,高嚴重度風險應優先透過管理層訪談與營運資料驗證。
+KRI Evidence Table,medium_severity_kri_count,3,count,Fact,sample_kri_extraction_results.csv,Medium signals indicate topics that may become dashboard monitoring candidates.,中度風險訊號可作為儀表板監控候選項。
+KRI Evidence Table,supply_chain_risk_mentions,1,count,Fact,sample_kri_extraction_results.csv,Supply chain risk links directly to delivery reliability capacity planning and customer satisfaction.,供應鏈風險直接連結交期可靠度、產能規劃與客戶滿意度。
+KRI Evidence Table,customer_concentration_risk_mentions,1,count,Fact,sample_kri_extraction_results.csv,Customer concentration affects revenue stability and demand planning assumptions.,客戶集中度會影響營收穩定性與需求預測假設。
+KRI Evidence Table,inventory_risk_mentions,1,count,Fact,sample_kri_extraction_results.csv,Inventory risk should be monitored with inventory days obsolete stock and forecast accuracy.,庫存風險應透過庫存天數、呆滯料與預測準確率監控。
+Digital Transformation Opportunity Map,predictive_planning_opportunities,1,count,Interpretation,sample_industry_trend_notes.json,Predictive planning could improve forecast accuracy and capacity allocation decisions.,預測式規劃可改善需求預測準確率與產能配置決策。
+Digital Transformation Opportunity Map,working_capital_dashboard_opportunities,1,count,Interpretation,sample_industry_trend_notes.json,Working capital dashboards connect financial risk thinking to operating data and management action.,營運資金儀表板可連結財務風險、營運資料與管理行動。
+Source Relevance,average_sample_relevance_score,82.7,score_0_100,Interpretation,sample_news_and_kri_files,Sample evidence is sufficiently relevant for an interview demo but should be replaced with verified sources for real client work.,樣本證據足以展示面試情境，但真實客戶專案應替換為可驗證來源。

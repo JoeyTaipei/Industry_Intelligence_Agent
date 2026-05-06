@@ -1,0 +1,8 @@
+company_id,ticker,company_name,industry,address,unified_business_number,chairman,general_manager,listing_date,source,scenario_role
+2330,2330.TW,TSMC,semiconductor,Hsinchu Taiwan,22099131,C.C. Wei,C.C. Wei,1994-09-05,demo_sample_registry,Advanced semiconductor foundry and AI accelerator supply chain anchor
+2454,2454.TW,MediaTek,semiconductor,Hsinchu Taiwan,84149961,Ming-Kai Tsai,Rick Tsai,2001-07-23,demo_sample_registry,IC design company exposed to edge AI and connected device demand
+2382,2382.TW,Quanta,AI server,Taoyuan Taiwan,22822281,Barry Lam,C.C. Leung,1999-01-08,demo_sample_registry,AI server and notebook ODM with cloud customer exposure
+3231,3231.TW,Wistron,manufacturing,New Taipei Taiwan,12868358,Simon Lin,Jeff Lin,2003-08-19,demo_sample_registry,Electronics manufacturing and server assembly partner
+2317,2317.TW,Foxconn,manufacturing,New Taipei Taiwan,04541302,Young Liu,Young Liu,1991-06-18,demo_sample_registry,Global electronics manufacturing and AI server supply chain participant
+2882,2882.TW,Cathay Financial,financial services,Taipei Taiwan,70827406,Hong-Tu Tsai,Alan Lee,2001-12-31,demo_sample_registry,Financial services group relevant for credit and investment risk context
+2881,2881.TW,Fubon Financial,financial services,Taipei Taiwan,03374805,Daniel Tsai,Jerry Harn,2001-12-19,demo_sample_registry,Financial services group relevant for credit risk and digital banking context

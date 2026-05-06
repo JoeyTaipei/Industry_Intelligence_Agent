@@ -1,0 +1,8 @@
+{
+  "database_path": "data/processed/intelligence.db",
+  "news_feeds": [
+    "https://feeds.bbci.co.uk/news/business/rss.xml",
+    "https://www.cnbc.com/id/10001147/device/rss/rss.html"
+  ]
+}
+

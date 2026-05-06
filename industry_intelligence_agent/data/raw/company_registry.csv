@@ -1,0 +1,9 @@
+﻿company_id,ticker,company_name,industry,address,unified_business_number,chairman,general_manager,listing_date,source
+2330,2330.TW,Taiwan Semiconductor Manufacturing Company,Semiconductors,"Hsinchu Science Park, Hsinchu, Taiwan",22099131,Mark Liu,C.C. Wei,1994-09-05,sample_data
+2454,2454.TW,MediaTek,IC Design,"Hsinchu Science Park, Hsinchu, Taiwan",84149961,Ming-Kai Tsai,Rick Tsai,2001-07-23,sample_data
+2382,2382.TW,Quanta Computer,Computer and Peripheral Equipment,"Taoyuan, Taiwan",22822281,Barry Lam,C.C. Leung,1999-01-08,sample_data
+3231,3231.TW,Wistron,Computer and Peripheral Equipment,"New Taipei City, Taiwan",12868358,Simon Lin,Jeff Lin,2003-08-19,sample_data
+2317,2317.TW,Foxconn,Manufacturing,"New Taipei City, Taiwan",04541302,Young Liu,Young Liu,1991-06-18,sample_data
+2882,2882.TW,Cathay Financial Holding,Financial Holding Company,"Taipei, Taiwan",70827406,Hong-Tu Tsai,Alan Lee,2001-12-31,sample_data
+2881,2881.TW,Fubon Financial Holding,Financial Holding Company,"Taipei, Taiwan",03374805,Daniel Tsai,Jerry Harn,2001-12-19,sample_data
+2884,2884.TW,E.SUN Bank,Banking,"Taipei, Taiwan",86517510,Joseph N.C. Huang,Chih-Ming Chen,2002-01-28,sample_data

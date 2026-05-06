@@ -1,0 +1,46 @@
+{
+  "industry": "Taiwan semiconductor / AI server",
+  "main_trends": [
+    "AI server demand is increasing the importance of advanced semiconductors, high-performance computing, and server assembly capacity.",
+    "Taiwan companies play roles across the value chain, including foundry services, IC design, server assembly, and electronics manufacturing.",
+    "Supply chain resilience, energy usage, export controls, and cybersecurity are becoming board-level operating topics."
+  ],
+  "growth_drivers": [
+    "Hyperscale cloud investment in AI infrastructure",
+    "Demand for advanced packaging and high-performance chips",
+    "Enterprise adoption of generative AI workloads",
+    "Need for more efficient data center hardware"
+  ],
+  "risks": [
+    "Component shortages may delay AI server production.",
+    "Customer concentration may increase revenue volatility.",
+    "Export controls and geopolitical tension may affect market access.",
+    "Cybersecurity risk increases as manufacturing operations become more connected."
+  ],
+  "key_companies": [
+    "TSMC",
+    "MediaTek",
+    "Quanta",
+    "Wistron",
+    "Foxconn",
+    "Cathay Financial",
+    "Fubon Financial"
+  ],
+  "data_indicators": [
+    "AI server order volume",
+    "Inventory days",
+    "Accounts receivable days",
+    "Capacity utilization",
+    "Capital expenditure",
+    "Supplier delivery delay rate",
+    "KRI mentions by category and severity"
+  ],
+  "digital_transformation_opportunities": [
+    "Predictive demand and capacity planning for AI server production",
+    "Supplier risk monitoring dashboard",
+    "Working capital early-warning dashboard",
+    "Cybersecurity and production continuity monitoring",
+    "ESG and energy usage reporting for advanced manufacturing"
+  ],
+  "guardrail_note": "This demo uses sample evidence for interview presentation. Any real client deliverable should cite verified sources and distinguish facts from interpretation."
+}

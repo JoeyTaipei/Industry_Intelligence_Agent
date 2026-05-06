@@ -1,0 +1,25 @@
+{
+  "request_timeout_seconds": 15,
+  "max_news_items": 8,
+  "registry_csv_path": "data/company_registry_sample.csv",
+  "news_feeds": [
+    "https://feeds.bbci.co.uk/news/business/rss.xml",
+    "https://www.cnbc.com/id/10001147/device/rss/rss.html",
+    "https://feeds.a.dj.com/rss/RSSMarketsMain.xml"
+  ],
+  "company_reports": {
+    "Taiwan Semiconductor Manufacturing Company": [
+      "https://investor.tsmc.com/sites/ir/annual-report/2023/2023%20Annual%20Report_E.pdf"
+    ],
+    "Apple": [
+      "https://www.apple.com/newsroom/pdfs/fy2023-q4/FY23_Q4_Consolidated_Financial_Statements.pdf"
+    ]
+  },
+  "industry_reports": {
+    "semiconductors": [
+      "https://www.semiconductors.org/wp-content/uploads/2024/05/SIA-2024-Factbook.pdf"
+    ],
+    "artificial intelligence consulting": []
+  }
+}
+

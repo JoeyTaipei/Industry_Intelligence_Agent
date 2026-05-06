@@ -1,0 +1,5 @@
+company_name,ticker,industry,country,website,description
+Taiwan Semiconductor Manufacturing Company,TSM,semiconductors,Taiwan,https://www.tsmc.com,"Global semiconductor foundry providing advanced wafer manufacturing and related services."
+Apple,AAPL,consumer electronics,United States,https://www.apple.com,"Technology company designing consumer devices, software, services, and digital ecosystems."
+Microsoft,MSFT,cloud software,United States,https://www.microsoft.com,"Software and cloud company offering productivity, infrastructure, AI, gaming, and enterprise platforms."
+

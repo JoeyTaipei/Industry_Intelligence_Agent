@@ -1,0 +1,2 @@
+﻿company_name,industry,total_news_count,total_kri_count,high_severity_kri_count,medium_severity_kri_count,low_severity_kri_count,overall_risk_level,recommended_follow_up
+Taiwan Semiconductor Manufacturing Company,Taiwan semiconductor / AI server,6,28,1,11,16,High,Validate high/medium KRI evidence with management interviews and source documents.

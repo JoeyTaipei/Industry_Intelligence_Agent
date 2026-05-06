@@ -1,0 +1,39 @@
+# Free RSS sources for the Industry Intelligence Agent MVP.
+# You can add, remove, or replace feeds without changing Python code.
+
+sources:
+  # Taiwan business news
+  - name: Focus Taiwan Business
+    category: Taiwan business news
+    url: https://focustaiwan.tw/rss/business
+
+  - name: Taipei Times Business
+    category: Taiwan business news
+    url: https://www.taipeitimes.com/xml/index.rss
+
+  # Global business news
+  - name: BBC Business
+    category: global business news
+    url: https://feeds.bbci.co.uk/news/business/rss.xml
+
+  - name: CNBC Business
+    category: global business news
+    url: https://www.cnbc.com/id/10001147/device/rss/rss.html
+
+  # Technology news
+  - name: The Verge
+    category: technology news
+    url: https://www.theverge.com/rss/index.xml
+
+  - name: TechCrunch
+    category: technology news
+    url: https://techcrunch.com/feed/
+
+  # Finance news
+  - name: CNBC Finance
+    category: finance news
+    url: https://www.cnbc.com/id/10000664/device/rss/rss.html
+
+  - name: MarketWatch Top Stories
+    category: finance news
+    url: https://feeds.marketwatch.com/marketwatch/topstories/
