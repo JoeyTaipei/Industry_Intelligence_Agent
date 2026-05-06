@@ -1,5 +1,13 @@
 # Industry Intelligence Brief
 
+## 中文 Executive Summary
+
+- **專案定位：** 這份 Industry Intelligence Brief 是 Deloitte Taiwan Digital Technology intern 面試用 MVP 展示，目的是示範如何用 Python 將 sample/public-style data 整理成可分析的商業洞察。
+- **分析情境：** 本 demo 聚焦 Taiwan semiconductor / AI server 產業與 Taiwan Semiconductor Manufacturing Company，整合公司基本資料、新聞訊號、年報文字片段與 KRI evidence。
+- **主要觀察：** AI server demand、advanced semiconductor capacity、supply chain resilience、geopolitical uncertainty、cybersecurity 與 working capital pressure 是本次資料中較常出現的 business signals。
+- **商業意涵：** 這些 signals 可以轉成顧問專案中的 dashboard requirements、client interview questions、risk monitoring metrics 與 digital transformation opportunity map。
+- **使用限制：** 本報告不是 production risk engine，也不是最終投資或信用決策。KRI evidence 需由顧問、分析師或客戶管理階層進一步驗證與審閱。
+
 **Company:** Taiwan Semiconductor Manufacturing Company
 **Industry:** Taiwan semiconductor / AI server
 **Generated at:** 2026-05-06T15:00:16.858032+00:00

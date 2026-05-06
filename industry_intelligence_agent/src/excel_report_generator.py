@@ -39,16 +39,20 @@ def generate_excel_report(
         news_df.to_excel(writer, sheet_name="News_Articles", index=False)
         kri_df.to_excel(writer, sheet_name="KRI_Evidence", index=False)
         summary_df.to_excel(writer, sheet_name="Summary_By_Company", index=False)
-        dashboard_df.to_excel(writer, sheet_name="Dashboard_View", index=False)
+        dashboard_df.to_excel(writer, sheet_name="Dashboard_View", index=False, startrow=2)
 
     workbook = load_workbook(path)
     for sheet_name in workbook.sheetnames:
-        _format_sheet(workbook[sheet_name])
+        if sheet_name == "Dashboard_View":
+            _add_dashboard_note(workbook[sheet_name])
+            _format_sheet(workbook[sheet_name], header_row=3)
+        else:
+            _format_sheet(workbook[sheet_name])
 
     _add_summary_formulas(workbook["Summary_By_Company"])
-    _add_dashboard_formulas(workbook["Dashboard_View"])
+    _add_dashboard_formulas(workbook["Dashboard_View"], header_row=3)
     _add_conditional_formatting(workbook["KRI_Evidence"])
-    _add_conditional_formatting(workbook["Dashboard_View"])
+    _add_conditional_formatting(workbook["Dashboard_View"], header_row=3)
 
     workbook.save(path)
     logger.info("Saved Excel report to %s", path)
@@ -110,24 +114,37 @@ def _add_summary_formulas(ws) -> None:
         ws.cell(row=row, column=start_col + 3, value=f"=XLOOKUP({company_cell},Company_Profile!C:C,Company_Profile!D:D,\"Not found\")")
 
 
-def _add_dashboard_formulas(ws) -> None:
+def _add_dashboard_note(ws) -> None:
+    """Add an interview-facing Chinese note to the Dashboard_View sheet."""
+    note = "說明：此 Excel 由 Python 自動產生，展示顧問與 business users 可用的 KRI 風險證據、新聞訊號與 dashboard-ready 分析結果；本 MVP 使用 sample/public-style data，最終判斷需人工審閱。"
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=9)
+    ws["A1"] = note
+    ws["A1"].font = Font(bold=True, color="1F4E78")
+    ws["A1"].fill = PatternFill(start_color="D9EAF7", end_color="D9EAF7", fill_type="solid")
+
+
+def _add_dashboard_formulas(ws, header_row: int = 1) -> None:
     """Add simple formulas to Dashboard_View for demo purposes."""
-    headers = [cell.value for cell in ws[1]]
+    headers = [cell.value for cell in ws[header_row]]
     start_col = len(headers) + 1
-    ws.cell(row=1, column=start_col, value="excel_follow_up_flag")
-    for row in range(2, ws.max_row + 1):
+    ws.cell(row=header_row, column=start_col, value="excel_follow_up_flag")
+    ws.cell(row=header_row, column=start_col).fill = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
+    ws.cell(row=header_row, column=start_col).font = Font(color="FFFFFF", bold=True)
+    for row in range(header_row + 1, ws.max_row + 1):
         # If high severity count is greater than zero, flag for follow-up.
         ws.cell(row=row, column=start_col, value=f'=IF(E{row}>0,"Priority follow-up","Monitor")')
+    ws.auto_filter.ref = f"A{header_row}:{get_column_letter(ws.max_column)}{ws.max_row}"
+    ws.column_dimensions[get_column_letter(start_col)].width = 24
 
 
-def _format_sheet(ws) -> None:
+def _format_sheet(ws, header_row: int = 1) -> None:
     """Add filters, freeze panes, header style, and column widths."""
-    ws.freeze_panes = "A2"
-    ws.auto_filter.ref = ws.dimensions
+    ws.freeze_panes = f"A{header_row + 1}"
+    ws.auto_filter.ref = f"A{header_row}:{get_column_letter(ws.max_column)}{ws.max_row}"
     header_fill = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
     header_font = Font(color="FFFFFF", bold=True)
 
-    for cell in ws[1]:
+    for cell in ws[header_row]:
         cell.fill = header_fill
         cell.font = header_font
 
@@ -137,17 +154,17 @@ def _format_sheet(ws) -> None:
         ws.column_dimensions[get_column_letter(column_cells[0].column)].width = width
 
 
-def _add_conditional_formatting(ws) -> None:
+def _add_conditional_formatting(ws, header_row: int = 1) -> None:
     """Highlight severity and risk level cells."""
     red_fill = PatternFill(start_color="F4CCCC", end_color="F4CCCC", fill_type="solid")
     yellow_fill = PatternFill(start_color="FFF2CC", end_color="FFF2CC", fill_type="solid")
     green_fill = PatternFill(start_color="D9EAD3", end_color="D9EAD3", fill_type="solid")
 
     for column in range(1, ws.max_column + 1):
-        header = str(ws.cell(row=1, column=column).value or "").lower()
+        header = str(ws.cell(row=header_row, column=column).value or "").lower()
         if "severity" in header or "risk_level" in header:
             letter = get_column_letter(column)
-            cell_range = f"{letter}2:{letter}{ws.max_row}"
+            cell_range = f"{letter}{header_row + 1}:{letter}{ws.max_row}"
             ws.conditional_formatting.add(cell_range, CellIsRule(operator="equal", formula=['"high"'], fill=red_fill))
             ws.conditional_formatting.add(cell_range, CellIsRule(operator="equal", formula=['"medium"'], fill=yellow_fill))
             ws.conditional_formatting.add(cell_range, CellIsRule(operator="equal", formula=['"low"'], fill=green_fill))
@@ -170,4 +187,3 @@ def _risk_score_sum(kri_df: pd.DataFrame, company_name: str) -> int:
         return 0
     subset = kri_df[kri_df["company_name"].fillna("").astype(str).str.lower() == company_name.lower()]
     return int(pd.to_numeric(subset["risk_score_hint"], errors="coerce").fillna(0).sum())
-
