@@ -110,6 +110,166 @@ def generate_json_report(
     }
 
 
+def generate_markdown_report_zh(
+    company_profile: dict[str, Any] | None,
+    news_df: pd.DataFrame | None,
+    kri_df: pd.DataFrame | None,
+    industry_trend_json: dict[str, Any] | None,
+    annual_report_summary: str | dict[str, Any] | None,
+) -> str:
+    """Generate the Industry Intelligence Brief in Traditional Chinese."""
+    company_profile = company_profile or {}
+    news_df = score_source_relevance(_ensure_dataframe(news_df), company_profile, industry_trend_json)
+    kri_df = score_source_relevance(_ensure_dataframe(kri_df), company_profile, industry_trend_json)
+    industry_trend_json = industry_trend_json or {}
+
+    company = company_profile.get("company_name") or "目標公司"
+    industry = industry_trend_json.get("industry") or company_profile.get("industry") or "目標產業"
+    annual_text = _summary_to_text(annual_report_summary)
+
+    sections = [
+        "# 產業情報簡報",
+        "",
+        f"**公司：** {company}",
+        f"**產業：** {industry}",
+        f"**產生時間：** {datetime.now(timezone.utc).isoformat()}",
+        "",
+        "## 1. 執行摘要",
+        _executive_summary_zh(company, industry, news_df, kri_df, industry_trend_json),
+        "",
+        "## 2. 公司基本資料",
+        _company_profile_section_zh(company_profile),
+        "",
+        "## 3. 商業模式",
+        _business_model_section_zh(company_profile, annual_text),
+        "",
+        "## 4. 產業趨勢",
+        _list_with_prefix_zh(industry_trend_json.get("main_trends"), "來源事實"),
+        "",
+        "## 5. 近期新聞訊號",
+        _news_section_zh(news_df),
+        "",
+        "## 6. KRI 風險證據",
+        _kri_section_zh(kri_df),
+        "",
+        "## 7. 資料分析應用場景",
+        _data_analysis_use_cases_zh(),
+        "",
+        "## 8. 數位轉型機會",
+        _digital_opportunity_section_zh(industry_trend_json, kri_df),
+        "",
+        "## 9. 建議追問與後續步驟",
+        _recommended_next_steps_zh(company, industry, news_df, kri_df),
+        "",
+        "### 使用聲明",
+        "- 來源事實：公司基本資料、新聞摘要、年報片段、KRI 證據句。",
+        "- 分析解讀：風險優先排序、商業意涵與數位轉型機會映射。",
+        "- 建議追問：客戶訪談問題與資料驗證步驟。",
+        "- 本報告為分析輔助工具，作為最終風險結論前須經人工審閱。",
+    ]
+    return "\n".join(sections)
+
+
+def _executive_summary_zh(company: str, industry: str, news_df: pd.DataFrame, kri_df: pd.DataFrame, trend_json: dict[str, Any]) -> str:
+    return "\n".join(f"- {point}" for point in _executive_summary_points_zh(company, industry, news_df, kri_df, trend_json))
+
+
+def _executive_summary_points_zh(company: str, industry: str, news_df: pd.DataFrame, kri_df: pd.DataFrame, trend_json: dict[str, Any]) -> list[str]:
+    top_trend = (trend_json.get("main_trends") or ["證據不足。"])[0]
+    top_risk = _first_non_empty(kri_df, "kri_category") or "未擷取到 KRI 證據。"
+    high = _count_severity(kri_df, "high")
+    medium = _count_severity(kri_df, "medium")
+    return [
+        f"來源事實：本簡報分析 {company}（產業：{industry}）。",
+        f"來源事實：證據包含 {len(news_df)} 則新聞，{len(kri_df)} 項 KRI 風險證據（高嚴重度 {high} 項，中嚴重度 {medium} 項）。",
+        f"分析解讀：主要趨勢訊號：{top_trend}",
+        f"分析解讀：首要風險主題：{top_risk}",
+        "建議追問：請與管理層訪談確認風險實質性，並建立 KPI/KRI 追蹤儀表板。",
+    ]
+
+
+def _company_profile_section_zh(profile: dict[str, Any]) -> str:
+    if not profile:
+        return "- 公司基本資料不可用。"
+    label_map = {
+        "company_name": "公司名稱", "ticker": "股票代碼", "industry": "產業",
+        "country": "國家", "website": "網站", "description": "公司描述",
+        "source": "資料來源",
+    }
+    return "\n".join(
+        f"- 來源事實 — {label_map.get(k, k)}：{v}"
+        for k, v in profile.items() if v
+    )
+
+
+def _business_model_section_zh(profile: dict[str, Any], annual_text: str) -> str:
+    points = []
+    if profile.get("industry"):
+        points.append(f"來源事實：公司歸屬於 {profile['industry']} 產業。")
+    if annual_text:
+        points.append(f"來源事實：年報訊號：{_shorten(annual_text, 450)}")
+    points.append("分析解讀：請將商業模式假設連結至營收驅動因素、營運風險與數位轉型機會。")
+    return "\n".join(f"- {p}" for p in points)
+
+
+def _news_section_zh(news_df: pd.DataFrame) -> str:
+    if news_df.empty:
+        return "- 無可用新聞證據。"
+    lines = []
+    for _, row in news_df.head(8).iterrows():
+        lines.append(f"- 來源事實：{row.get('title', '')}：{_shorten(row.get('summary', ''), 220)}")
+    return "\n".join(lines)
+
+
+def _kri_section_zh(kri_df: pd.DataFrame) -> str:
+    if kri_df.empty:
+        return "- 未擷取到 KRI 風險證據。"
+    severity_map = {"high": "高", "medium": "中", "low": "低"}
+    lines = []
+    for _, row in kri_df.head(10).iterrows():
+        sev = severity_map.get(str(row.get("severity_hint", "")).lower(), row.get("severity_hint", ""))
+        lines.append(
+            f"- 來源事實：{row.get('kri_category', '')}（嚴重度：{sev}）："
+            f"{_shorten(row.get('evidence_sentence', ''), 240)}"
+        )
+    return "\n".join(lines)
+
+
+def _data_analysis_use_cases_zh() -> str:
+    return "\n".join([
+        "- 建立 KPI/KRI 儀表板，依公司、產業、嚴重度與風險類別分層。",
+        "- 使用 Excel COUNTIFS/SUMIFS 彙總各嚴重度 KRI 證據數量。",
+        "- 對比新聞訊號與年報風險語言，找出管理層認知差距。",
+        "- 追蹤營運資金、庫存、應收帳款與供應商延遲等關鍵指標。",
+    ])
+
+
+def _digital_opportunity_section_zh(trend_json: dict[str, Any], kri_df: pd.DataFrame) -> str:
+    items = trend_json.get("digital_transformation_opportunities") or [
+        "營運資金儀表板",
+        "供應商風險監控",
+        "需求預測與產能規劃",
+    ]
+    return _list_with_prefix_zh(items, "分析解讀")
+
+
+def _recommended_next_steps_zh(company: str, industry: str, news_df: pd.DataFrame, kri_df: pd.DataFrame) -> str:
+    return "\n".join([
+        "- 建議追問：管理層目前追蹤哪些風險？哪些僅為外部市場訊號？",
+        "- 建議追問：每月定期檢視哪些 KPI/KRI 指標？",
+        "- 建議追問：哪些資料來源已足夠可靠，可納入儀表板報告？",
+        "- 建議追問：哪個數位轉型機會有最清楚的 KPI 衡量連結？",
+    ])
+
+
+def _list_with_prefix_zh(items: Any, prefix: str) -> str:
+    if not items:
+        return "- 證據不足。"
+    if isinstance(items, str):
+        items = [items]
+    return "\n".join(f"- {prefix}：{item}" for item in items)
+
+
 def generate_final_demo_summary_zh(
     company_name: str,
     industry: str,

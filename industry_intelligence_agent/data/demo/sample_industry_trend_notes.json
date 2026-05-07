@@ -1,46 +1,47 @@
 {
   "industry": "Taiwan semiconductor / AI server",
   "main_trends": [
-    "AI server demand is increasing the importance of advanced semiconductors, high-performance computing, and server assembly capacity.",
-    "Taiwan companies play roles across the value chain, including foundry services, IC design, server assembly, and electronics manufacturing.",
-    "Supply chain resilience, energy usage, export controls, and cybersecurity are becoming board-level operating topics."
+    "TSMC March 2026 revenue reached 415.2 billion NTD (+45.2% YoY), driven by AI chip demand from hyperscalers including NVIDIA and Broadcom.",
+    "US-Taiwan chip deal commits $250B Taiwan investment in US manufacturing; TSMC Arizona scaling to $465B across 11 fabs with Taiwan tariff rate capped at 15%.",
+    "Strait of Hormuz closure since March 4 2026 threatens Taiwan energy supply (97% imported) and helium supply from Qatar, creating acute short-term production risk.",
+    "US imposes 50% tariff on Chinese semiconductor imports (effective Jan 2026) and new tariffs on Chinese chips announced for June 2027, reshaping global supply chain."
   ],
   "growth_drivers": [
-    "Hyperscale cloud investment in AI infrastructure",
-    "Demand for advanced packaging and high-performance chips",
-    "Enterprise adoption of generative AI workloads",
-    "Need for more efficient data center hardware"
+    "AI accelerator demand from hyperscale cloud customers (NVIDIA, Broadcom) driving TSMC advanced node capacity constraints",
+    "US CHIPS Act and tariff framework incentivizing $250B+ Taiwan investment in American semiconductor fabs",
+    "Generative AI workload expansion accelerating enterprise adoption of high-performance computing",
+    "Advanced packaging (CoWoS, SoIC) demand growing faster than leading-edge wafer capacity"
   ],
   "risks": [
-    "Component shortages may delay AI server production.",
-    "Customer concentration may increase revenue volatility.",
-    "Export controls and geopolitical tension may affect market access.",
-    "Cybersecurity risk increases as manufacturing operations become more connected."
+    "Strait of Hormuz closure since March 2026 threatens Taiwan LNG supply (only 11-day reserves without imports), directly risking fab operations.",
+    "Helium prices doubled after Qatar Ras Laffan facility went offline; helium is critical for advanced node chip manufacturing.",
+    "TSMC Arizona fab costs 30% higher than Taiwan equivalent, compressing margins on US-mandated production.",
+    "US export controls on AI chips to China reduce addressable market; China retaliates with rare earth export restrictions (gallium, germanium, graphite).",
+    "Customer concentration risk: TSMC capacity at most advanced nodes increasingly limited, creating delivery risk for NVIDIA and Broadcom.",
+    "Geopolitical scenario planning required for cross-strait tension, US-China tariff escalation, and Middle East energy disruption simultaneously."
   ],
   "key_companies": [
-    "TSMC",
-    "MediaTek",
-    "Quanta",
-    "Wistron",
-    "Foxconn",
-    "Cathay Financial",
-    "Fubon Financial"
+    "TSMC (2330.TW) - foundry, 65%+ advanced node market share",
+    "MediaTek - IC design, AI chip exposure",
+    "Quanta / Wistron / Foxconn - AI server assembly",
+    "NVIDIA - key TSMC customer, AI GPU demand driver",
+    "Broadcom - advanced packaging customer, constrained TSMC capacity"
   ],
   "data_indicators": [
-    "AI server order volume",
-    "Inventory days",
-    "Accounts receivable days",
-    "Capacity utilization",
-    "Capital expenditure",
-    "Supplier delivery delay rate",
-    "KRI mentions by category and severity"
+    "TSMC monthly revenue (NTD, YoY% growth)",
+    "Taiwan LNG import volume and reserve days",
+    "Helium spot price (USD per thousand cubic feet)",
+    "US-China effective tariff rate on semiconductors (%)",
+    "TSMC CoWoS / advanced packaging capacity utilization",
+    "TSMC Arizona vs Taiwan fab cost differential (%)",
+    "Rare earth export license approval rate (China)"
   ],
   "digital_transformation_opportunities": [
-    "Predictive demand and capacity planning for AI server production",
-    "Supplier risk monitoring dashboard",
-    "Working capital early-warning dashboard",
-    "Cybersecurity and production continuity monitoring",
-    "ESG and energy usage reporting for advanced manufacturing"
+    "Energy and supply chain resilience dashboard: monitor LNG reserves, helium prices, and critical material availability in real time",
+    "Tariff scenario modeling tool: simulate margin impact of US 25%/50% chip tariffs on product cost structures",
+    "Capacity allocation optimization: AI-assisted demand forecasting to manage constrained TSMC advanced node slots",
+    "Geopolitical risk early-warning system: track Strait of Hormuz, cross-strait tension, and export control policy changes",
+    "ESG and energy reporting platform: track Taiwan fab energy intensity, renewable energy ratio, and carbon footprint"
   ],
-  "guardrail_note": "This demo uses sample evidence for interview presentation. Any real client deliverable should cite verified sources and distinguish facts from interpretation."
+  "guardrail_note": "News sourced from Tom's Hardware, CNBC, Taipei Times, Yahoo Finance, 247 Wall St, and Tax Foundation (April-May 2026). Facts from sources are cited; analytical interpretation is separate. Human review required before client use."
 }
