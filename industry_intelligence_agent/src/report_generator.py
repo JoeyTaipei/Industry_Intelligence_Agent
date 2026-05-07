@@ -466,73 +466,215 @@ def _business_impact_section(kri_df: pd.DataFrame) -> str:
     return "\n".join(lines)
 
 
+_CAT_PLAYBOOK: dict[str, dict[str, str]] = {
+    "supply chain risk": {
+        "urgency":  "本週",
+        "action":   "確認主要零組件替代料源清單；為 single-source 供應商建立緊急切換計畫",
+        "kpi":      "供應商交期達成率 %、安全庫存天數、single-source 零組件數量",
+        "question": "目前有幾個零組件無替代來源？最高風險零組件的庫存水位是多少天？",
+        "outcome":  "識別 single-source 零組件並啟動替代料源評估",
+    },
+    "geopolitical risk": {
+        "urgency":  "本週",
+        "action":   "列出關稅敏感產品線，計算各稅率情境下 COGS 增量與毛利率敏感度",
+        "kpi":      "關稅影響 COGS 增量（USD）、毛利率敏感度（%per 10% tariff change）",
+        "question": "哪些產品線含有受出口管制影響的零組件？是否已做過關稅情境 stress test？",
+        "outcome":  "完成關稅情境模型，識別毛利率最脆弱的產品線",
+    },
+    "customer concentration risk": {
+        "urgency":  "本週",
+        "action":   "計算前五大客戶各自的營收佔比；確認訂單取消 / 延遲條款與最低採購承諾",
+        "kpi":      "前五大客戶營收佔比 %、最大單一客戶佔比 %、訂單能見度（週數）",
+        "question": "若最大客戶訂單縮減 20%，對本年度 revenue 與 gross profit 影響是多少？",
+        "outcome":  "建立客戶集中度熱力圖，設定觸發客戶多元化計畫的閾值",
+    },
+    "ESG / sustainability risk": {
+        "urgency":  "本月",
+        "action":   "確認能源來源結構與再生能源佔比；盤點碳排放資料的可靠性與揭露缺口",
+        "kpi":      "能源強度（kWh/product unit）、再生能源佔比 %、Scope 1+2 碳排量",
+        "question": "ESG 資料目前由哪個部門負責？揭露標準是 GRI、TCFD 還是其他？",
+        "outcome":  "建立 ESG 資料治理架構，確認可用於外部揭露的指標",
+    },
+    "regulatory risk": {
+        "urgency":  "本月",
+        "action":   "列出受出口管制影響的材料清單（鎵、鍺、石墨等）；確認合規義務與申請流程",
+        "kpi":      "受管制材料庫存水位、出口許可申請週期（天）、合規成本佔 COGS %",
+        "question": "目前使用哪些受出口管制的材料？申請許可的平均等待時間是多少？",
+        "outcome":  "建立材料合規清單，降低因許可延遲導致的生產中斷風險",
+    },
+    "profitability risk": {
+        "urgency":  "本月",
+        "action":   "分析過去四季毛利率趨勢；拆解 COGS 成本驅動因子（材料、人力、製造費用）",
+        "kpi":      "毛利率 %（季度趨勢）、COGS per unit、定價調整幅度 vs 成本增幅",
+        "question": "毛利率下降的主因是材料成本、匯率還是訂單量？有沒有在做定價策略調整？",
+        "outcome":  "識別主要成本壓力來源，評估轉嫁至客戶定價的可行性",
+    },
+    "inventory risk": {
+        "urgency":  "本月",
+        "action":   "計算庫存天數（DIO）並與行業標準對比；識別高齡庫存與跌價風險品項",
+        "kpi":      "庫存天數 DIO（目標 vs 實際）、高齡庫存 / 總庫存 %、需求預測準確率 %",
+        "question": "目前庫存超過 90 天的品項佔比是多少？預測準確率是否有在追蹤？",
+        "outcome":  "建立庫存健康儀表板，設定跌價準備金觸發規則",
+    },
+    "cash flow risk": {
+        "urgency":  "本月",
+        "action":   "追蹤自由現金流（FCF）與資本支出計畫；確認未來 12 個月的流動性缺口",
+        "kpi":      "自由現金流（FCF）、現金轉換週期（CCC）、資本支出 / 營收比 %",
+        "question": "未來 12 個月最大的資本支出是哪個項目？最低現金緩衝目標是多少？",
+        "outcome":  "建立 12 個月現金流預測模型，識別需要融資的月份",
+    },
+    "liquidity risk": {
+        "urgency":  "本月",
+        "action":   "確認流動比率與速動比率；盤點可動用的信用額度與備用融資來源",
+        "kpi":      "流動比率（Current Ratio）、速動比率（Quick Ratio）、未動用信用額度（USD）",
+        "question": "目前有哪些備用信用額度？最近一次流動性壓力測試是什麼時候做的？",
+        "outcome":  "確認流動性緩衝是否充足，制定壓力情境下的融資觸發計畫",
+    },
+    "receivables risk": {
+        "urgency":  "本月",
+        "action":   "分析應收帳款帳齡分布；確認主要客戶的付款條件與逾期比率",
+        "kpi":      "應收帳款天數 DSO、逾期帳款 / 總應收 %、壞帳準備金覆蓋率",
+        "question": "前三大客戶的平均付款天期是多少？目前有沒有逾期 60 天以上的帳款？",
+        "outcome":  "建立帳齡健康報表，設定催收啟動與壞帳提列規則",
+    },
+    "cyber / digital risk": {
+        "urgency":  "本季",
+        "action":   "評估 OT/IT 整合環境的資安暴露面；確認事件應變計畫（IRP）的存在與有效性",
+        "kpi":      "資安事件數量 / 季、事件平均應變時間（MTTR）、ICS/OT 網路隔離比率 %",
+        "question": "智慧工廠環境有沒有做 OT/IT 網路分隔？最近一次資安演練是何時？",
+        "outcome":  "識別高風險 OT 接入點，啟動資安評估與緊急應變計畫更新",
+    },
+    "leverage risk": {
+        "urgency":  "本季",
+        "action":   "分析負債結構與到期日程；計算利息保障倍數與債務 / EBITDA 比率",
+        "kpi":      "利息保障倍數（Interest Coverage Ratio）、債務 / EBITDA、到期債務佔比 %",
+        "question": "未來 18 個月有多少債務到期？如果利率上升 2%，利息費用增加多少？",
+        "outcome":  "確認財務槓桿是否在債務契約（covenant）的安全範圍內",
+    },
+}
+
+
 def _next_steps_section(kri_df: pd.DataFrame) -> str:
-    """Section 7: five-group practical consulting recommendations."""
-    high = _count_severity(kri_df, "high")
+    """Section 7: complete consulting recommendations with priority matrix,
+    per-KRI playbook, measurable KPIs, management questions, and
+    a validation framework so recommendations can be confirmed effective.
+    """
+    if kri_df.empty:
+        return (
+            "> 目前沒有 KRI evidence，無法產生具體建議。\n"
+            "> 建議補充新聞或上傳可搜尋文字的年報 PDF 後重新分析。"
+        )
+
+    high   = _count_severity(kri_df, "high")
     medium = _count_severity(kri_df, "medium")
-    present_cats: set[str] = set(kri_df["kri_category"].dropna().str.lower().str.strip().tolist()) if not kri_df.empty and "kri_category" in kri_df.columns else set()
+    present_cats: set[str] = set(
+        kri_df["kri_category"].dropna().str.lower().str.strip().tolist()
+    ) if "kri_category" in kri_df.columns else set()
 
-    def _if_cat(*cats: str, then: str) -> str | None:
-        return then if any(c in present_cats for c in cats) else None
+    # Build sorted priority list from actual KRI found
+    sev_order = {"high": 0, "medium": 1, "low": 2}
+    sorted_kri = (
+        kri_df[["kri_category", "severity_hint"]]
+        .dropna(subset=["kri_category"])
+        .copy()
+    )
+    if "severity_hint" in sorted_kri.columns:
+        sorted_kri["_rank"] = sorted_kri["severity_hint"].str.lower().map(sev_order).fillna(3)
+        sorted_kri = sorted_kri.sort_values("_rank")
+    unique_cats_ordered = list(dict.fromkeys(sorted_kri["kri_category"].tolist()))
 
-    # Build context-aware recommendations
-    immediate = [
-        "- 確認 revenue by region / customer concentration，評估主力客戶依賴程度。",
-        "- 確認 gross margin trend 與 COGS breakdown，識別成本壓力來源。",
+    # ── Priority matrix ───────────────────────────────────────────────────────
+    sev_label = {"high": "🔴 HIGH", "medium": "🟡 MEDIUM", "low": "🟢 LOW"}
+    matrix_rows: list[str] = [
+        "| 優先 | KRI 類別 | 嚴重度 | 建議行動 | 衡量指標 | 驗證問題 |",
+        "|---|---|---|---|---|---|",
     ]
-    if "supply chain risk" in present_cats or "inventory risk" in present_cats:
-        immediate.append("- 確認主要供應商集中度、替代料源清單與安全庫存水位。")
-    if "geopolitical risk" in present_cats or "regulatory risk" in present_cats:
-        immediate.append("- 確認關稅敏感產品線的成本結構，評估是否需要供應鏈重組。")
+    for rank, cat in enumerate(unique_cats_ordered[:8], start=1):
+        sev_val = ""
+        if "severity_hint" in kri_df.columns:
+            row_sev = kri_df[kri_df["kri_category"] == cat]["severity_hint"].iloc[0] if not kri_df[kri_df["kri_category"] == cat].empty else ""
+            sev_val = sev_label.get(str(row_sev).lower(), row_sev)
+        pb = _CAT_PLAYBOOK.get(cat.lower().strip(), {})
+        action   = pb.get("action",   "需進一步評估具體行動")
+        kpi      = pb.get("kpi",      "需定義衡量指標")
+        question = pb.get("question", "需與管理層確認")
+        matrix_rows.append(f"| {rank} | {cat} | {sev_val} | {action[:60]}… | {kpi[:50]}… | {question[:60]}… |")
 
-    data_analysis = [
-        "- 追蹤庫存天數（DIO）、應收帳款天數（DSO）、現金轉換週期（CCC）。",
-        "- 比對本報告 KRI 類別與年報 Risk Factors 揭露，找出管理層認知差距。",
-    ]
-    if "geopolitical risk" in present_cats:
-        data_analysis.append("- 分析關稅情境對 COGS 與毛利率的敏感度（scenario analysis）。")
-    if "customer concentration risk" in present_cats:
-        data_analysis.append("- 計算前五大客戶佔比與單客戶依賴風險。")
+    # ── Per-group lines ───────────────────────────────────────────────────────
+    def _playbook_lines(cats: list[str], include_outcome: bool = False) -> list[str]:
+        lines: list[str] = []
+        for cat in cats:
+            pb = _CAT_PLAYBOOK.get(cat.lower().strip())
+            if not pb:
+                lines.append(f"- **{cat}**：需進一步評估具體行動與衡量指標。")
+                continue
+            lines.append(f"- **{cat}**（緊急度：{pb['urgency']}）")
+            lines.append(f"  - 行動：{pb['action']}")
+            lines.append(f"  - 衡量 KPI：{pb['kpi']}")
+            lines.append(f"  - 管理層驗證問題：{pb['question']}")
+            if include_outcome:
+                lines.append(f"  - 預期產出：{pb['outcome']}")
+        return lines or ["- 本次 KRI evidence 未觸及此時程，無需優先處理。"]
 
-    dashboard = [
-        "- 建立 KRI severity dashboard：高嚴重度項目以紅色警示，每週更新。",
-        "- 設定供應商交期、庫存水位與現金流預警通知。",
-    ]
-    if "geopolitical risk" in present_cats or "regulatory risk" in present_cats:
-        dashboard.append("- 追蹤關稅政策與出口管制異動，設定新聞關鍵字通知。")
+    immediate_cats = [c for c in unique_cats_ordered if _CAT_PLAYBOOK.get(c.lower().strip(), {}).get("urgency") == "本週"]
+    monthly_cats   = [c for c in unique_cats_ordered if _CAT_PLAYBOOK.get(c.lower().strip(), {}).get("urgency") == "本月"]
+    quarterly_cats = [c for c in unique_cats_ordered if _CAT_PLAYBOOK.get(c.lower().strip(), {}).get("urgency") == "本季"]
+    all_remaining  = [c for c in unique_cats_ordered if c.lower().strip() not in _CAT_PLAYBOOK]
 
-    management = [
-        "- 與管理層確認：哪些風險已有對策？哪些仍在觀察？",
-        "- 資本支出與供應鏈多元化的優先順序為何？",
-        "- 哪些 KPI 目前已在月度 review 中追蹤？",
-    ]
-
-    human_review = [
-        f"- 優先人工覆核 **{high}** 筆高嚴重度 KRI evidence，回到原始來源驗證語境。",
-        f"- 中嚴重度 {medium} 筆作為次優先覆核清單。",
-        "- 若 KRI evidence 來源為 sample 或 fallback 資料，需以真實新聞與年報替換後重新分析。",
-        "- 若資料不足，在報告中標記「需補充」，不要過度外推結論。",
-    ]
+    # Management questions from playbook
+    mgmt_questions: list[str] = []
+    for cat in unique_cats_ordered[:6]:
+        pb = _CAT_PLAYBOOK.get(cat.lower().strip(), {})
+        if pb.get("question"):
+            mgmt_questions.append(f"- **{cat}**：{pb['question']}")
+    if not mgmt_questions:
+        mgmt_questions = ["- 與管理層確認哪些風險已有對策、哪些仍在觀察中。"]
 
     lines: list[str] = [
-        "> 本節為基於 KRI evidence 的初步諮詢建議，需搭配客戶資料與管理層訪談才能形成最終建議。",
-        "> **本分析為 evidence-based prioritization，不是財務模型。Severity 僅供人工排序，不代表損失金額。**",
+        "> 本節為基於 KRI evidence 的初步諮詢建議。每一條建議都對應一個可量化的 KPI 和一個可向管理層驗證的問題。",
+        "> **這是 evidence-based prioritization，不是財務模型。建議需以客戶內部資料與管理層訪談驗證後才能成為最終建議。**",
         "",
-        "### 1. 立即檢查",
-        *immediate,
+        "### 優先處理矩陣",
+        *matrix_rows,
         "",
-        "### 2. 數據分析",
-        *data_analysis,
+        "---",
         "",
-        "### 3. Dashboard / 監控建議",
-        *dashboard,
+        "### 1. 立即處理（本週）",
+        *_playbook_lines(immediate_cats, include_outcome=True),
         "",
-        "### 4. 管理層決策議題",
-        *management,
+        "### 2. 短期行動（本月）",
+        *_playbook_lines(monthly_cats, include_outcome=True),
         "",
-        "### 5. 人工覆核",
-        *human_review,
+        "### 3. 中期規劃（本季）",
+        *_playbook_lines(quarterly_cats, include_outcome=False),
+        "",
+        "### 4. 管理層訪談問題",
+        "> 以下問題來自 KRI playbook，面試或客戶訪談時可直接使用：",
+        *mgmt_questions,
+        "- **所有類別**：哪些 KRI 已在月度 review 中追蹤？哪些是今天第一次聽到？",
+        "- **所有類別**：哪些 KPI 有明確的目標值與觸發行動的閾值？",
+        "",
+        "### 5. 人工覆核清單",
+        f"- 優先覆核 **{high}** 筆高嚴重度 KRI：回到原始新聞 URL 或年報段落，確認語境正確、未斷章取義。",
+        f"- 次優先覆核 **{medium}** 筆中嚴重度 KRI：確認是否為管理層已知風險或新外部訊號。",
+        "- 對比新聞 KRI 與年報 KRI：同時出現 = 管理層已有共識；僅在新聞出現 = 潛在認知差距。",
+        "- 若任何 KRI 來源為 sample/fallback 資料，需以真實年報與新聞替換後重新執行分析。",
+        "",
+        "---",
+        "",
+        "### 如何確認這些建議對企業有效果",
+        "> 建議有效的標準：每個行動都能在 30–60 天內產生可量化的基準線，並在 90 天後看到變化。",
+        "",
+        "| 驗證機制 | 說明 |",
+        "|---|---|",
+        "| KPI 基準線 | 執行建議前先記錄現況數字（DIO、DSO、毛利率等），作為 before 基準 |",
+        "| 管理層確認 | 每條建議需請管理層確認：是已知風險還是新訊號？是否已有對策？ |",
+        "| 30 天 check-in | 30 天後確認優先矩陣中前三項行動是否已啟動 |",
+        "| 60 天 KPI review | 60 天後比對 KPI 基準線，確認是否朝目標方向移動 |",
+        "| KRI 重新掃描 | 60 天後重新執行 KRI extraction，觀察高嚴重度項目是否減少或升高 |",
+        "| 認知差距追蹤 | 確認原本「僅出現於新聞」的 KRI，60 天後是否已在年報或管理層報告中揭露 |",
     ]
+
     return "\n".join(lines)
 
 
