@@ -16,6 +16,7 @@ def generate_chinese_report(
     annual_report_evidence_df: pd.DataFrame,
     kri_df: pd.DataFrame,
     dashboard_df: pd.DataFrame,
+    extraction_status: str = "news_only",
     output_path: str | Path | None = None,
 ) -> str:
     """Generate the Traditional Chinese consulting-style report."""
@@ -44,7 +45,7 @@ def generate_chinese_report(
             "- 風險分數不是財務模型，severity 只是人工覆核的優先順序提示，最終決策仍需要 human review。",
             "",
             "## 2. 資料來源",
-            _source_section(news_df, annual_report_evidence_df),
+            _source_section(news_df, annual_report_evidence_df, extraction_status),
             "",
             "## 3. 主要產業趨勢",
             _trend_section(news_df, kri_df),
@@ -52,8 +53,8 @@ def generate_chinese_report(
             "## 4. 年報 Risk Factors 重點",
             _annual_section(annual_report_evidence_df),
             "",
-            "## 5. KRI Evidence Table",
-            _kri_table_markdown(kri_df),
+            "## 5. KRI Evidence",
+            _kri_evidence_section(kri_df),
             "",
             "## 6. 商業影響",
             _business_impact_section(kri_df),
@@ -299,10 +300,17 @@ def generate_industry_report(
     return generate_json_report(profile, news_df, pd.DataFrame(), {"industry": industry}, "")
 
 
-def _source_section(news_df: pd.DataFrame, annual_df: pd.DataFrame) -> str:
+def _source_section(news_df: pd.DataFrame, annual_df: pd.DataFrame, extraction_status: str = "news_only") -> str:
+    _status_labels = {
+        "pdf_text_extracted": "年報 PDF 文字擷取成功",
+        "manual_text_used":   "使用者手動貼入年報文字",
+        "news_only":          "僅使用新聞（無年報文字）",
+    }
+    status_label = _status_labels.get(extraction_status, extraction_status)
     lines = [
-        f"- 網路新聞：{len(news_df)} 則，來源為 Google News RSS 或 sample fallback。",
+        f"- 網路新聞：{len(news_df)} 則，來源為 Google News RSS 或預建 demo 資料。",
         f"- 年報證據：{len(annual_df)} 段，優先擷取 Risk Factors 與 Management Discussion。",
+        f"- 年報擷取狀態：{status_label}",
     ]
     if not news_df.empty:
         lines.append("- 近期新聞標題：")
@@ -332,53 +340,200 @@ def _annual_section(annual_df: pd.DataFrame) -> str:
     return "\n".join(lines)
 
 
-def _kri_table_markdown(kri_df: pd.DataFrame) -> str:
+def _kri_evidence_section(kri_df: pd.DataFrame) -> str:
+    """Section 5: rich KRI evidence with categories, counts, and annotated evidence sentences."""
     if kri_df.empty:
-        return "- 尚未抽取到 KRI evidence。"
-    columns = [
-        "source_type",
-        "kri_category",
-        "severity_hint",
-        "risk_score_hint",
-        "detected_countries",
-        "detected_percentages",
-        "evidence_sentence",
+        return "- 尚未抽取到 KRI evidence。建議補充新聞或上傳可搜尋文字的年報 PDF。"
+
+    high = _count_severity(kri_df, "high")
+    medium = _count_severity(kri_df, "medium")
+    low = _count_severity(kri_df, "low")
+    top_cats = _top_kri_categories(kri_df)
+    news_count = int((kri_df.get("source_type", pd.Series(dtype=str)) == "news").sum()) if "source_type" in kri_df.columns else 0
+    ar_count = len(kri_df) - news_count
+
+    lines: list[str] = [
+        "### 來源概述",
+        f"- 共 **{len(kri_df)}** 筆 KRI evidence：新聞 {news_count} 筆、年報 {ar_count} 筆。",
+        f"- 嚴重度：🔴 高 {high} 筆 · 🟡 中 {medium} 筆 · 🟢 低 {low} 筆",
+        f"- 主要風險類別：{top_cats or '不足，需補充資料來源。'}",
+        "",
+        "### Evidence 清單（最多顯示 10 筆，依嚴重度排序）",
     ]
-    display = kri_df[[column for column in columns if column in kri_df.columns]].head(20).copy()
-    headers = display.columns.tolist()
-    rows = ["| " + " | ".join(headers) + " |", "| " + " | ".join(["---"] * len(headers)) + " |"]
-    for _, row in display.iterrows():
-        values = [str(row.get(column, "")).replace("\n", " ").replace("|", "/") for column in headers]
-        rows.append("| " + " | ".join(values) + " |")
-    return "\n".join(rows)
+
+    _sev_order = {"high": 0, "medium": 1, "low": 2}
+    sorted_df = kri_df.copy()
+    if "severity_hint" in sorted_df.columns:
+        sorted_df["_sev_rank"] = sorted_df["severity_hint"].str.lower().map(_sev_order).fillna(3)
+        sorted_df = sorted_df.sort_values("_sev_rank").drop(columns=["_sev_rank"])
+
+    for _, row in sorted_df.head(10).iterrows():
+        sev = str(row.get("severity_hint", "")).lower()
+        sev_icon = {"high": "🔴 HIGH", "medium": "🟡 MEDIUM", "low": "🟢 LOW"}.get(sev, sev.upper())
+        cat = row.get("kri_category", "")
+        src = row.get("source_type", "")
+        keywords = row.get("matched_keywords", row.get("matched_keyword", ""))
+        countries = row.get("detected_countries", "")
+        pcts = row.get("detected_percentages", "")
+        evidence = _shorten(str(row.get("evidence_sentence", "")), 300)
+
+        _business_hint = _category_to_business_hint(cat)
+
+        meta_parts = [f"來源：{src}"]
+        if keywords:
+            meta_parts.append(f"關鍵字：{keywords}")
+        if countries:
+            meta_parts.append(f"國家/地區：{countries}")
+        if pcts:
+            meta_parts.append(f"數字：{pcts}")
+
+        lines += [
+            f"**{sev_icon} | {cat}**",
+            f"  - {' · '.join(meta_parts)}",
+            f"  - 證據：{evidence}",
+            f"  - 商業意涵：{_business_hint}",
+            "",
+        ]
+
+    return "\n".join(lines)
+
+
+def _category_to_business_hint(category: str) -> str:
+    """Map a KRI category to a concise Traditional Chinese business implication."""
+    _hints: dict[str, str] = {
+        "supply chain risk":            "供應鏈中斷可能造成交期延誤、庫存不足或生產停滯，需評估替代來源與安全庫存水位。",
+        "geopolitical risk":            "地緣政治風險可能影響市場准入、出口管制合規與產能配置策略。",
+        "customer concentration risk":  "客戶集中度高代表單一客戶訂單異動將直接衝擊營收穩定性，需確認前五大客戶占比。",
+        "ESG / sustainability risk":    "能源與碳排放要求可能提高資本支出，並影響供應鏈合規成本與品牌聲譽。",
+        "regulatory risk":              "法規變動或出口管制可能增加合規成本、限制市場進入，並提高法律不確定性。",
+        "profitability risk":           "成本上升或定價壓力可能壓縮毛利率，需追蹤 COGS 趨勢與轉嫁定價能力。",
+        "inventory risk":               "庫存積壓或短缺可能影響現金流，需監控庫存天數（DIO）與預測準確率。",
+        "cash flow risk":               "現金流壓力可能影響短期償債能力，需追蹤自由現金流與資本支出規劃。",
+        "liquidity risk":               "流動性不足可能限制運營彈性，需連結 working capital 與信用額度狀況。",
+        "receivables risk":             "應收帳款回收延遲或壞帳損失將影響現金轉換週期（CCC）與財務健康度。",
+        "cyber / digital risk":         "資安事件可能造成營運中斷、資料外洩與合規罰款，需評估 OT/IT 防禦能力。",
+        "leverage risk":                "高槓桿可能限制財務彈性，需監控利息保障倍數與債務到期結構。",
+    }
+    return _hints.get(category.lower().strip(), "需進一步評估此風險對財務與營運的具體影響。")
+
+
+# ── Impact group mappings ─────────────────────────────────────────────────────
+
+_REVENUE_CATS = {"customer concentration risk", "demand risk", "cash flow risk", "inventory risk"}
+_COST_CATS    = {"profitability risk", "regulatory risk", "geopolitical risk", "leverage risk",
+                 "ESG / sustainability risk"}
+_SUPPLY_CATS  = {"supply chain risk", "inventory risk", "cyber / digital risk", "receivables risk"}
+_REGUL_CATS   = {"geopolitical risk", "regulatory risk", "ESG / sustainability risk"}
+_DEMAND_CATS  = {"customer concentration risk"}
 
 
 def _business_impact_section(kri_df: pd.DataFrame) -> str:
+    """Section 6: group KRI into 5 business impact dimensions."""
     if kri_df.empty:
-        return "- 目前沒有足夠 KRI evidence 判斷商業影響。"
-    impacts = {
-        "trade/tariff risk": "關稅與貿易政策可能影響成本結構、售價、供應鏈配置與毛利率。",
-        "supply chain risk": "供應鏈延遲或短缺可能影響交期、庫存策略與營收認列。",
-        "supplier concentration risk": "供應商集中可能降低議價能力並提高營運中斷風險。",
-        "cost pressure risk": "成本壓力可能壓縮毛利率，需追蹤價格轉嫁能力。",
-        "demand risk": "需求波動可能影響庫存、產能規劃與現金流。",
-        "liquidity risk": "流動性壓力需連結 working capital、短期資金與信用額度。",
-    }
-    seen = list(dict.fromkeys(kri_df["kri_category"].dropna().astype(str).tolist()))
-    return "\n".join(f"- {category}：{impacts.get(category, '需進一步評估財務與營運影響。')}" for category in seen[:8])
+        return "- 目前沒有足夠 KRI evidence 判斷商業影響。建議補充新聞或上傳年報 PDF。"
+
+    present_cats: set[str] = set(kri_df["kri_category"].dropna().str.lower().str.strip().tolist()) if "kri_category" in kri_df.columns else set()
+
+    def _impact_lines(cats_map: set[str], fallback: str) -> list[str]:
+        matched = [c for c in kri_df["kri_category"].dropna().unique() if c.lower().strip() in cats_map]
+        if not matched:
+            return [f"  - 本次 KRI evidence 未觸及此影響類別（{fallback}）。"]
+        lines = []
+        for cat in matched:
+            subset = kri_df[kri_df["kri_category"] == cat]
+            high_n = int((subset["severity_hint"].str.lower() == "high").sum()) if "severity_hint" in subset.columns else 0
+            lines.append(f"  - **{cat}**（{len(subset)} 筆，其中高嚴重度 {high_n} 筆）：{_category_to_business_hint(cat)}")
+        return lines
+
+    sections = [
+        ("### 1. 營收影響", _impact_lines(_REVENUE_CATS, "客戶集中度、需求、現金流")),
+        ("### 2. 成本影響", _impact_lines(_COST_CATS,    "關稅、法規、獲利、槓桿")),
+        ("### 3. 供應鏈 / 營運影響", _impact_lines(_SUPPLY_CATS, "供應鏈、庫存、資安")),
+        ("### 4. 法規 / 地緣政治影響", _impact_lines(_REGUL_CATS, "地緣政治、法規、ESG")),
+        ("### 5. 客戶 / 需求影響", _impact_lines(_DEMAND_CATS, "客戶集中度")),
+    ]
+
+    lines: list[str] = [
+        "> 以下根據 KRI evidence 初步分析潛在商業衝擊。所有分析為假設性推論，需透過財務資料與管理層訪談驗證。",
+        "",
+    ]
+    for header, body in sections:
+        lines.append(header)
+        lines.extend(body)
+        lines.append("")
+
+    lines.append("> 若本次分析未涵蓋某類別，表示 KRI evidence 不足，非代表風險不存在。")
+    return "\n".join(lines)
 
 
 def _next_steps_section(kri_df: pd.DataFrame) -> str:
-    steps = [
-        "- 回到新聞 URL 與年報原文，驗證 high/medium KRI evidence 的來源與語境。",
-        "- 將 KRI 類別映射到可量化 KPI，例如毛利率、庫存天數、供應商交期、現金流、負債比率。",
-        "- 與管理層訪談確認哪些風險已被內部追蹤，哪些只是外部市場訊號。",
-        "- 若要 production 化，加入來源可信度、時間序列、人工覆核狀態與權限控管。",
+    """Section 7: five-group practical consulting recommendations."""
+    high = _count_severity(kri_df, "high")
+    medium = _count_severity(kri_df, "medium")
+    present_cats: set[str] = set(kri_df["kri_category"].dropna().str.lower().str.strip().tolist()) if not kri_df.empty and "kri_category" in kri_df.columns else set()
+
+    def _if_cat(*cats: str, then: str) -> str | None:
+        return then if any(c in present_cats for c in cats) else None
+
+    # Build context-aware recommendations
+    immediate = [
+        "- 確認 revenue by region / customer concentration，評估主力客戶依賴程度。",
+        "- 確認 gross margin trend 與 COGS breakdown，識別成本壓力來源。",
     ]
-    if not kri_df.empty:
-        follow_ups = kri_df.get("recommended_follow_up", pd.Series(dtype=str)).dropna().astype(str).drop_duplicates().head(3).tolist()
-        steps.extend(f"- {item}" for item in follow_ups)
-    return "\n".join(steps)
+    if "supply chain risk" in present_cats or "inventory risk" in present_cats:
+        immediate.append("- 確認主要供應商集中度、替代料源清單與安全庫存水位。")
+    if "geopolitical risk" in present_cats or "regulatory risk" in present_cats:
+        immediate.append("- 確認關稅敏感產品線的成本結構，評估是否需要供應鏈重組。")
+
+    data_analysis = [
+        "- 追蹤庫存天數（DIO）、應收帳款天數（DSO）、現金轉換週期（CCC）。",
+        "- 比對本報告 KRI 類別與年報 Risk Factors 揭露，找出管理層認知差距。",
+    ]
+    if "geopolitical risk" in present_cats:
+        data_analysis.append("- 分析關稅情境對 COGS 與毛利率的敏感度（scenario analysis）。")
+    if "customer concentration risk" in present_cats:
+        data_analysis.append("- 計算前五大客戶佔比與單客戶依賴風險。")
+
+    dashboard = [
+        "- 建立 KRI severity dashboard：高嚴重度項目以紅色警示，每週更新。",
+        "- 設定供應商交期、庫存水位與現金流預警通知。",
+    ]
+    if "geopolitical risk" in present_cats or "regulatory risk" in present_cats:
+        dashboard.append("- 追蹤關稅政策與出口管制異動，設定新聞關鍵字通知。")
+
+    management = [
+        "- 與管理層確認：哪些風險已有對策？哪些仍在觀察？",
+        "- 資本支出與供應鏈多元化的優先順序為何？",
+        "- 哪些 KPI 目前已在月度 review 中追蹤？",
+    ]
+
+    human_review = [
+        f"- 優先人工覆核 **{high}** 筆高嚴重度 KRI evidence，回到原始來源驗證語境。",
+        f"- 中嚴重度 {medium} 筆作為次優先覆核清單。",
+        "- 若 KRI evidence 來源為 sample 或 fallback 資料，需以真實新聞與年報替換後重新分析。",
+        "- 若資料不足，在報告中標記「需補充」，不要過度外推結論。",
+    ]
+
+    lines: list[str] = [
+        "> 本節為基於 KRI evidence 的初步諮詢建議，需搭配客戶資料與管理層訪談才能形成最終建議。",
+        "> **本分析為 evidence-based prioritization，不是財務模型。Severity 僅供人工排序，不代表損失金額。**",
+        "",
+        "### 1. 立即檢查",
+        *immediate,
+        "",
+        "### 2. 數據分析",
+        *data_analysis,
+        "",
+        "### 3. Dashboard / 監控建議",
+        *dashboard,
+        "",
+        "### 4. 管理層決策議題",
+        *management,
+        "",
+        "### 5. 人工覆核",
+        *human_review,
+    ]
+    return "\n".join(lines)
 
 
 def _top_kri_categories(kri_df: pd.DataFrame) -> str:

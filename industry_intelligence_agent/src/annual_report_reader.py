@@ -159,6 +159,8 @@ def read_annual_report_pdf(
         if part
     ) or cleaned_text
 
+    extraction_status = "pdf_text_extracted" if cleaned_text.strip() else "extraction_failed"
+
     return {
         "pdf_path": str(pdf_path),
         "raw_text": raw_text,
@@ -166,6 +168,7 @@ def read_annual_report_pdf(
         "sections": sections,
         "prioritized_text": prioritized_text,
         "chunks": chunk_text(prioritized_text, chunk_size=chunk_size, overlap=overlap),
+        "extraction_status": extraction_status,
         "metadata": {
             "character_count": len(cleaned_text),
             "word_count": len(cleaned_text.split()),

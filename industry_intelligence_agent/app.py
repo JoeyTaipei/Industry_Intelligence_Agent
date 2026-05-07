@@ -89,12 +89,19 @@ def _fetch_news(inputs: dict[str, Any]) -> pd.DataFrame:
 
 # ── PDF reading ───────────────────────────────────────────────────────────────
 
+_EMPTY_ANNUAL: dict[str, Any] = {
+    "pdf_path": "", "raw_text": "", "cleaned_text": "",
+    "sections": {}, "prioritized_text": "", "chunks": [],
+    "extraction_status": "news_only",
+    "metadata": {"character_count": 0, "word_count": 0,
+                 "has_risk_factors": False, "has_management_discussion": False},
+}
+
+
 def _read_pdf(uploaded_file: Any) -> dict[str, Any]:
-    """Save upload to temp file and extract text. Returns empty dict if no file."""
-    empty = {"pdf_path": "", "raw_text": "", "cleaned_text": "",
-             "sections": {}, "prioritized_text": "", "chunks": [], "metadata": {}}
+    """Save upload to temp file and extract text. Returns empty result if no file."""
     if uploaded_file is None:
-        return empty
+        return dict(_EMPTY_ANNUAL)
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
             tmp.write(uploaded_file.getbuffer())
@@ -103,8 +110,30 @@ def _read_pdf(uploaded_file: Any) -> dict[str, Any]:
         tmp_path.unlink(missing_ok=True)
         return result
     except Exception as exc:
-        st.warning(f"PDF 解析失敗：{exc}")
-        return empty
+        st.warning(f"PDF 解析時發生錯誤：{exc}")
+        return dict(_EMPTY_ANNUAL)
+
+
+def _apply_manual_text(annual_data: dict[str, Any], manual_text: str) -> dict[str, Any]:
+    """Override annual_data with user-pasted text, save to uploads/, return updated dict."""
+    text = manual_text.strip()
+    save_path = UPLOAD_DIR / "manual_annual_report_text.txt"
+    save_path.write_text(text, encoding="utf-8")
+
+    updated = dict(annual_data)
+    updated["cleaned_text"]     = text
+    updated["prioritized_text"] = text
+    updated["extraction_status"] = "manual_text_used"
+    updated["metadata"] = {
+        "character_count": len(text),
+        "word_count": len(text.split()),
+        "has_risk_factors": "risk factor" in text.lower(),
+        "has_management_discussion": "management" in text.lower() and "discussion" in text.lower(),
+    }
+    # Re-chunk for KRI extraction
+    from src.annual_report_reader import chunk_text
+    updated["chunks"] = chunk_text(text)
+    return updated
 
 
 # ── Report generation ─────────────────────────────────────────────────────────
@@ -117,6 +146,7 @@ def _generate_report(inputs: dict[str, Any], lang: str) -> str:
         "ticker":       inputs["ticker"],
         "industry":     inputs["industry_keyword"],
     }
+    extraction_status = r.get("annual_report_data", {}).get("extraction_status", "news_only")
     if lang == "zh":
         return generate_chinese_report(
             company_profile=company_profile,
@@ -124,6 +154,7 @@ def _generate_report(inputs: dict[str, Any], lang: str) -> str:
             annual_report_evidence_df=r.get("annual_evidence_df", pd.DataFrame()),
             kri_df=r.get("kri_df", pd.DataFrame()),
             dashboard_df=r.get("dashboard_df", pd.DataFrame()),
+            extraction_status=extraction_status,
         )
     return generate_markdown_report(
         company_profile=company_profile,
@@ -140,13 +171,27 @@ def _run_analysis(inputs: dict[str, Any]) -> None:
     with st.spinner("分析中..."):
         news_df = _fetch_news(inputs)
 
+        # PDF extraction
         annual_data = _read_pdf(inputs["annual_pdf"])
         char_count = annual_data.get("metadata", {}).get("character_count", 0)
-        if inputs["annual_pdf"] and char_count == 0:
-            st.warning("PDF 未能擷取到文字（可能為掃描版 PDF 或加密）。KRI 僅從新聞擷取。")
+
+        # Apply manual text override if PDF failed and user pasted text
+        manual_text = inputs.get("manual_text", "").strip()
+        if inputs["annual_pdf"] and char_count == 0 and manual_text:
+            annual_data = _apply_manual_text(annual_data, manual_text)
+            char_count = annual_data["metadata"]["character_count"]
+            st.info(f"使用手動貼入文字：{char_count:,} 字元。")
+        elif inputs["annual_pdf"] and char_count == 0:
+            # Mark failed; app will show text_area on next render
+            st.session_state["pdf_extraction_failed"] = True
+            annual_data["extraction_status"] = "news_only"
         elif inputs["annual_pdf"]:
-            st.info(f"年報解析完成：{char_count:,} 字元，"
-                    f"找到章節：{[k for k,v in annual_data.get('sections',{}).items() if v]}")
+            st.session_state["pdf_extraction_failed"] = False
+            found = [k for k, v in annual_data.get("sections", {}).items() if v]
+            st.info(f"年報解析完成：{char_count:,} 字元，找到章節：{found or '（使用全文）'}")
+
+        if not inputs["annual_pdf"]:
+            annual_data["extraction_status"] = "news_only"
 
         annual_evidence_rows = build_annual_report_evidence_rows(
             annual_data,
@@ -174,7 +219,7 @@ def _run_analysis(inputs: dict[str, Any]) -> None:
             subset=["source_type", "kri_category", "evidence_sentence"]
         ) if frames else pd.DataFrame()
 
-        news_text  = " ".join((news_df.get("title","") + ". " + news_df.get("summary","")).fillna("").tolist()) if not news_df.empty else ""
+        news_text  = " ".join((news_df.get("title", "") + ". " + news_df.get("summary", "")).fillna("").tolist()) if not news_df.empty else ""
         annual_txt = annual_data.get("prioritized_text", "")
         trend_notes = convert_to_trend_notes(" ".join([news_text, annual_txt]).strip(),
                                              industry=inputs["industry_keyword"]) if (news_text or annual_txt) else {"industry": inputs["industry_keyword"]}
@@ -337,20 +382,42 @@ def _render_tabs(inputs: dict[str, Any]) -> None:
     # ── Tab 2: Annual Report ──────────────────────────────────────────────────
     with tabs[2]:
         st.subheader("年報風險證據 | Annual Report Evidence")
-        meta = annual_data.get("metadata", {})
+        meta   = annual_data.get("metadata", {})
+        status = annual_data.get("extraction_status", "news_only")
+        _status_badges = {
+            "pdf_text_extracted": "🟢 PDF 文字擷取成功",
+            "manual_text_used":   "🔵 使用手動貼入文字",
+            "news_only":          "⚪ 僅新聞（無年報）",
+            "extraction_failed":  "🔴 PDF 擷取失敗",
+        }
+        st.caption(f"年報狀態：{_status_badges.get(status, status)}")
+
         if meta.get("character_count", 0) > 0:
             c1, c2, c3, c4 = st.columns(4)
             c1.metric("字元數", f"{meta['character_count']:,}")
-            c2.metric("詞數", f"{meta.get('word_count',0):,}")
+            c2.metric("詞數",   f"{meta.get('word_count', 0):,}")
             c3.metric("Risk Factors", "✅" if meta.get("has_risk_factors") else "❌")
-            c4.metric("MD&A", "✅" if meta.get("has_management_discussion") else "❌")
+            c4.metric("MD&A",         "✅" if meta.get("has_management_discussion") else "❌")
             if not annual_ev_df.empty:
                 st.dataframe(annual_ev_df, use_container_width=True, hide_index=True)
                 st.download_button("⬇ 下載年報證據 CSV", _dataframe_csv(annual_ev_df),
                                    "annual_report_evidence.csv", "text/csv")
+            else:
+                st.info("年報文字已擷取，但未找到標準章節標題（Risk Factors / MD&A）。KRI 仍從全文擷取。")
+        elif status == "extraction_failed":
+            st.error(
+                "此 PDF 無法擷取到文字，可能是掃描版或受保護文件。\n\n"
+                "請回到頁面頂部，將年報 Risk Factors / MD&A 文字貼入文字框後重新執行分析。"
+            )
+            st.markdown(
+                "**可搜尋文字版 PDF 下載：**\n"
+                "- Apple 10-K: https://investor.apple.com/sec-filings/annual-reports\n"
+                "- TSMC Annual Report: https://ir.tsmc.com/english/annualreports.htm\n"
+                "- TWSE 公開資訊觀測站: https://mops.twse.com.tw"
+            )
         else:
-            st.info("尚未上傳年報 PDF，或 PDF 未解析出文字（可能為掃描版）。"
-                    "\n\n**下載 Apple 10-K：** https://investor.apple.com/sec-filings/annual-reports")
+            st.info("尚未上傳年報 PDF。\n\n"
+                    "上傳後系統將自動擷取 Risk Factors 與 MD&A 段落，用於 KRI 分析。")
 
     # ── Tab 3: KRI Dashboard ──────────────────────────────────────────────────
     with tabs[3]:
@@ -527,6 +594,21 @@ def main() -> None:
         st.divider()
         max_news = st.slider("最多新聞數 | Max Articles", 5, 30, 10, 1)
 
+    # ── Manual text fallback (shown when PDF extraction failed) ───────────────
+    manual_text = ""
+    if st.session_state.get("pdf_extraction_failed"):
+        st.warning(
+            "此 PDF 可能是掃描版或受保護文件，系統無法直接擷取文字。\n\n"
+            "你可以改用**可搜尋文字版 PDF**，或將年報 Risk Factors / MD&A 段落貼入下方文字框。"
+        )
+        manual_text = st.text_area(
+            "貼上年報 Risk Factors / MD&A 文字 | Paste annual report text",
+            height=220,
+            placeholder="例如：Item 1A. Risk Factors\nThe company faces significant supply chain risk...",
+        )
+        if manual_text.strip():
+            st.info(f"已輸入 {len(manual_text.strip()):,} 字元，執行分析後將用於 KRI 擷取。")
+
     inputs = {
         "company_name":    company_name.strip(),
         "ticker":          ticker.strip(),
@@ -535,6 +617,7 @@ def main() -> None:
         "annual_pdf":      annual_pdf,
         "use_demo_data":   use_demo_data,
         "max_news":        max_news,
+        "manual_text":     manual_text,
     }
 
     # ── Language + Buttons ────────────────────────────────────────────────────

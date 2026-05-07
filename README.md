@@ -142,6 +142,26 @@ industry_intelligence_agent/
 
 ---
 
+## PDF Text Extraction & Fallback
+
+The app extracts text from annual report PDFs using **pdfplumber** (primary) and **PyMuPDF** (fallback).
+
+If the PDF is a scanned image or protected file and no text can be extracted, the app will:
+1. Show a clear warning message in Traditional Chinese
+2. Display a text area — paste the Risk Factors / MD&A section directly
+3. Use the pasted text for KRI extraction and report generation
+4. Save the pasted text to `data/uploads/manual_annual_report_text.txt`
+
+The `extraction_status` field tracks how the annual report text was sourced:
+- `pdf_text_extracted` — PDF text read successfully
+- `manual_text_used` — user pasted text as fallback
+- `news_only` — no annual report provided
+- `extraction_failed` — PDF provided but text could not be read
+
+> **Future improvement (not implemented):** If the annual report is a scanned PDF, OCR can be added using Tesseract (`pytesseract`) or a cloud OCR service (Google Document AI, Azure Form Recognizer). This would convert scanned pages to searchable text before the KRI extraction pipeline runs.
+
+---
+
 ## Tech Stack
 
 Python · pandas · Streamlit · Altair · pdfplumber · feedparser · reportlab · PyYAML
