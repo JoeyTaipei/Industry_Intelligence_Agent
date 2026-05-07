@@ -91,30 +91,12 @@ industry_intelligence_agent/
 │   └── summarizer.py             ← LLM/rule-based brief generation
 ├── data/
 │   ├── demo/                     ← Pre-built demo data (real 2026 news)
-│   ├── raw/                      ← company_registry.csv
-│   └── report/                   ← interview_prep_guide.pdf
+│   └── raw/                      ← company_registry.csv
 ├── configs/
 │   └── rss_sources.yaml          ← RSS feed URLs (edit without code change)
 ├── scripts/
-│   ├── generate_interview_pdf.py ← Regenerate interview prep PDF
 │   └── run_pipeline.py           ← CLI pipeline runner
 └── requirements.txt
-```
-
----
-
-## Interview Prep
-
-PDF with full preparation guide (architecture, KRI methodology, key numbers, Q&A):
-
-```
-data/report/interview_prep_guide.pdf
-```
-
-Regenerate anytime:
-
-```bash
-python scripts/generate_interview_pdf.py
 ```
 
 ---
