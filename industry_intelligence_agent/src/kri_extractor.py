@@ -1,8 +1,8 @@
 """KRI evidence extraction for human review.
 
-KRI means Key Risk Indicator. This module does not produce final risk scores.
-It extracts evidence sentences from annual reports, company profiles, and news
-so a human analyst can review them.
+This module extracts risk evidence from news and annual report text. The
+severity score is not a financial model; it is a prioritization hint that helps
+human reviewers decide which evidence to validate first.
 """
 
 from __future__ import annotations
@@ -17,74 +17,183 @@ import pandas as pd
 try:
     from src.text_cleaner import clean_text
 except ModuleNotFoundError:
-    # Allows direct execution with: python src/kri_extractor.py
     from text_cleaner import clean_text
 
 
 logger = logging.getLogger(__name__)
 
+COUNTRIES = [
+    "Taiwan",
+    "China",
+    "United States",
+    "U.S.",
+    "US",
+    "Japan",
+    "South Korea",
+    "Korea",
+    "India",
+    "Vietnam",
+    "EU",
+    "European Union",
+    "Germany",
+    "Singapore",
+    "Malaysia",
+    "Thailand",
+]
+
+PERCENTAGE_RE = re.compile(r"\b\d+(?:\.\d+)?\s*(?:%|percent)\b", flags=re.IGNORECASE)
+
+HIGH_SEVERITY_WORDS = [
+    "material adverse effect",
+    "materially adversely affect",
+    "significant disruption",
+    "significant",
+    "critical",
+    "severe",
+    "sharp decline",
+    "default",
+    "liquidity pressure",
+]
+
+MEDIUM_SEVERITY_WORDS = [
+    "uncertain",
+    "uncertainty",
+    "may",
+    "could",
+    "risk",
+    "pressure",
+    "delay",
+    "shortage",
+    "disruption",
+    "volatile",
+    "loss",
+    "increase cost",
+    "cost pressure",
+]
 
 KRI_COLUMNS = [
     "source_id",
     "company_name",
     "industry",
     "source_type",
+    "published_date",
     "kri_category",
-    "matched_keyword",
+    "matched_keywords",
     "evidence_sentence",
+    "detected_countries",
+    "detected_percentages",
     "severity_hint",
     "risk_score_hint",
-]
-
-
-HIGH_SEVERITY_WORDS = [
-    "significant",
-    "material",
-    "severe",
-    "critical",
-    "default",
-    "sharp decline",
-    "liquidity pressure",
-    "high leverage",
-    "insolvency",
-    "bankruptcy",
-]
-
-MEDIUM_SEVERITY_WORDS = [
-    "decline",
-    "shortage",
-    "delay",
-    "loss",
-    "uncertainty",
-    "pressure",
-    "disruption",
-    "volatile",
-    "weakness",
-    "increase",
-    "decrease",
-    "risk",
-    "challenge",
+    "recommended_follow_up",
 ]
 
 
 def load_kri_dictionary() -> dict[str, list[str]]:
     """Return the MVP keyword dictionary by KRI category."""
     return {
+        "geopolitical risk": [
+            "geopolitical",
+            "war",
+            "political tension",
+            "cross-strait",
+            "sanction",
+            "trade restriction",
+        ],
+        "trade/tariff risk": [
+            "tariff",
+            "duty",
+            "trade war",
+            "import restriction",
+            "export control",
+            "customs",
+        ],
+        "supply chain risk": [
+            "supply chain",
+            "supplier",
+            "shortage",
+            "logistics",
+            "procurement",
+            "delivery delay",
+        ],
+        "supplier concentration risk": [
+            "supplier concentration",
+            "single supplier",
+            "sole supplier",
+            "key supplier",
+            "limited suppliers",
+            "depend on suppliers",
+        ],
+        "raw material risk": [
+            "raw material",
+            "rare earth",
+            "lithium",
+            "cobalt",
+            "gallium",
+            "germanium",
+            "semiconductor components",
+        ],
+        "regulatory risk": [
+            "regulatory",
+            "regulation",
+            "compliance",
+            "lawsuit",
+            "litigation",
+            "fine",
+            "license",
+        ],
+        "cybersecurity risk": [
+            "cyber",
+            "cybersecurity",
+            "data breach",
+            "ransomware",
+            "information security",
+            "system outage",
+        ],
+        "ESG risk": [
+            "esg",
+            "sustainability",
+            "carbon",
+            "emissions",
+            "climate",
+            "renewable energy",
+            "labor rights",
+        ],
+        "cost pressure risk": [
+            "cost pressure",
+            "increase cost",
+            "cost increase",
+            "inflation",
+            "gross margin",
+            "pricing pressure",
+        ],
+        "demand risk": [
+            "demand",
+            "slowdown",
+            "weak demand",
+            "customer demand",
+            "order cancellation",
+            "volatile demand",
+        ],
+        "operational disruption risk": [
+            "operational disruption",
+            "production disruption",
+            "factory shutdown",
+            "delay",
+            "business interruption",
+            "outage",
+        ],
         "liquidity risk": [
             "liquidity",
             "working capital",
-            "current ratio",
-            "short-term funding",
             "cash reserves",
             "credit facility",
-            "debt maturity",
+            "short-term funding",
         ],
         "leverage risk": [
             "leverage",
             "debt",
             "borrowings",
             "interest expense",
-            "debt-to-equity",
             "covenant",
             "financing cost",
         ],
@@ -94,158 +203,68 @@ def load_kri_dictionary() -> dict[str, list[str]]:
             "operating margin",
             "net income",
             "earnings decline",
-            "pricing pressure",
-            "cost increase",
-        ],
-        "cash flow risk": [
-            "cash flow",
-            "operating cash",
-            "free cash flow",
-            "cash used in operations",
-            "capital expenditure",
-            "capex",
-        ],
-        "inventory risk": [
-            "inventory",
-            "obsolete inventory",
-            "inventory write-down",
-            "stock level",
-            "excess inventory",
-            "inventory turnover",
-        ],
-        "receivables risk": [
-            "accounts receivable",
-            "receivables",
-            "bad debt",
-            "allowance for doubtful accounts",
-            "collection period",
-            "credit loss",
-        ],
-        "supply chain risk": [
-            "supply chain",
-            "supplier",
-            "shortage",
-            "logistics",
-            "procurement",
-            "raw material",
-            "delivery delay",
-        ],
-        "customer concentration risk": [
-            "customer concentration",
-            "major customer",
-            "largest customer",
-            "key customer",
-            "customer dependency",
-            "top five customers",
-        ],
-        "regulatory risk": [
-            "regulation",
-            "regulatory",
-            "compliance",
-            "lawsuit",
-            "litigation",
-            "sanction",
-            "fine",
-            "license",
-        ],
-        "geopolitical risk": [
-            "geopolitical",
-            "trade restriction",
-            "export control",
-            "tariff",
-            "cross-strait",
-            "war",
-            "political tension",
-        ],
-        "cyber / digital risk": [
-            "cyber",
-            "cybersecurity",
-            "data breach",
-            "information security",
-            "system outage",
-            "ransomware",
-            "digital risk",
-        ],
-        "ESG / sustainability risk": [
-            "esg",
-            "sustainability",
-            "carbon",
-            "emissions",
-            "climate",
-            "renewable energy",
-            "water usage",
-            "labor rights",
+            "margin pressure",
         ],
     }
 
 
-def split_into_sentences(text: str) -> list[str]:
-    """Split text into sentence-like evidence units."""
-    cleaned = clean_text(text)
-    if not cleaned:
-        return []
-
-    # Handles normal sentence punctuation and keeps common report text readable.
-    sentences = re.split(r"(?<=[.!?])\s+|\n+", cleaned)
-    return [sentence.strip() for sentence in sentences if len(sentence.strip()) >= 20]
-
-
 def extract_kri_mentions(
-    text: str | list[str] | list[dict[str, Any]],
+    text: str | list[str] | list[dict[str, Any]] | pd.DataFrame,
     source_id: str,
     source_type: str,
     company_name: str | None = None,
     industry: str | None = None,
 ) -> pd.DataFrame:
-    """Extract KRI evidence mentions from text or text chunks.
-
-    `text` can be:
-    - one long string
-    - a list of strings
-    - a list of dictionaries with a `text` field, such as annual report chunks
-    """
+    """Extract KRI evidence from text, annual-report chunks, or news rows."""
+    records: list[dict[str, Any]] = []
     dictionary = load_kri_dictionary()
-    sentences = _collect_sentences(text)
-    records: list[dict[str, str]] = []
 
-    for sentence in sentences:
-        lower_sentence = sentence.lower()
+    for item in _iter_evidence_items(text, source_id, source_type, company_name, industry):
+        for sentence in split_into_sentences(item["text"]):
+            lower_sentence = sentence.lower()
+            for category, keywords in dictionary.items():
+                matched = [keyword for keyword in keywords if keyword.lower() in lower_sentence]
+                if not matched:
+                    continue
+                severity = _severity_hint(sentence)
+                records.append(
+                    {
+                        "source_id": item["source_id"],
+                        "company_name": item["company_name"],
+                        "industry": item["industry"],
+                        "source_type": item["source_type"],
+                        "published_date": item.get("published_date", ""),
+                        "kri_category": category,
+                        "matched_keywords": ", ".join(dict.fromkeys(matched)),
+                        "evidence_sentence": sentence,
+                        "detected_countries": ", ".join(_detect_countries(sentence)),
+                        "detected_percentages": ", ".join(_detect_percentages(sentence)),
+                        "severity_hint": severity,
+                        "risk_score_hint": {"high": 3, "medium": 2, "low": 1}[severity],
+                        "recommended_follow_up": _recommended_follow_up(category, severity),
+                    }
+                )
 
-        for category, keywords in dictionary.items():
-            for keyword in keywords:
-                if keyword.lower() in lower_sentence:
-                    records.append(
-                        {
-                            "source_id": source_id,
-                            "company_name": company_name or "",
-                            "industry": industry or "",
-                            "source_type": source_type,
-                            "kri_category": category,
-                            "matched_keyword": keyword,
-                            "evidence_sentence": sentence,
-                            "severity_hint": _severity_hint(sentence),
-                            "risk_score_hint": 0,
-                        }
-                    )
-                    # One matched keyword per category per sentence is enough
-                    # for review and avoids noisy duplicate rows.
-                    break
+    if not records:
+        return pd.DataFrame(columns=KRI_COLUMNS)
 
-    df = pd.DataFrame(records, columns=KRI_COLUMNS)
-    return score_kri_mentions(df)
+    df = pd.DataFrame(records)
+    df = df.drop_duplicates(subset=["source_type", "kri_category", "evidence_sentence"]).reset_index(drop=True)
+    return df[KRI_COLUMNS]
 
 
 def score_kri_mentions(df: pd.DataFrame) -> pd.DataFrame:
-    """Add severity and numeric risk hints for analyst prioritization.
+    """Add severity and risk score hints for human prioritization.
 
-    This is evidence extraction, not a final credit decision. A human analyst
-    should review source quality, materiality, and financial data before using
-    the output in any recommendation.
+    This is not a financial model. It does not estimate loss, probability, or
+    enterprise value impact; it only helps human reviewers triage evidence.
     """
-    if df.empty:
+    if df is None or df.empty:
         return pd.DataFrame(columns=KRI_COLUMNS)
 
     result = df.copy()
+    if "evidence_sentence" not in result.columns:
+        result["evidence_sentence"] = ""
     result["severity_hint"] = result["evidence_sentence"].apply(_severity_hint)
     result["risk_score_hint"] = result["severity_hint"].map({"high": 3, "medium": 2, "low": 1}).fillna(1).astype(int)
     for column in KRI_COLUMNS:
@@ -254,76 +273,108 @@ def score_kri_mentions(df: pd.DataFrame) -> pd.DataFrame:
     return result[KRI_COLUMNS].reset_index(drop=True)
 
 
+def split_into_sentences(text: str) -> list[str]:
+    """Split text into sentence-like evidence units."""
+    cleaned = clean_text(text)
+    if not cleaned:
+        return []
+    sentences = re.split(r"(?<=[.!?])\s+|\n+", cleaned)
+    return [sentence.strip() for sentence in sentences if len(sentence.strip()) >= 25]
+
+
 def save_kri_results(df: pd.DataFrame, output_path: str | Path) -> None:
-    """Save KRI evidence results to CSV or JSON."""
+    """Save KRI evidence to CSV or JSON."""
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)
-
     if path.suffix.lower() == ".json":
         df.to_json(path, orient="records", force_ascii=False, indent=2)
-        logger.info("Saved %s KRI rows to JSON: %s", len(df), path)
-        return
-
-    df.to_csv(path, index=False, encoding="utf-8-sig")
-    logger.info("Saved %s KRI rows to CSV: %s", len(df), path)
+    else:
+        df.to_csv(path, index=False, encoding="utf-8-sig")
 
 
 def extract_kri_signals(text: str) -> dict[str, list[str]]:
-    """Backward-compatible summary helper used by the starter report generator."""
+    """Backward-compatible summary helper."""
     df = extract_kri_mentions(text, source_id="unknown", source_type="text")
-
     risks = df["evidence_sentence"].drop_duplicates().head(10).tolist() if not df.empty else []
-
-    return {
-        "risks": risks,
-        "opportunities": [],
-        "kpi_kri_signals": risks,
-    }
+    return {"risks": risks, "opportunities": [], "kpi_kri_signals": risks}
 
 
-def _collect_sentences(text: str | list[str] | list[dict[str, Any]]) -> list[str]:
-    """Normalize supported input formats into a sentence list."""
+def _iter_evidence_items(
+    text: str | list[str] | list[dict[str, Any]] | pd.DataFrame,
+    source_id: str,
+    source_type: str,
+    company_name: str | None,
+    industry: str | None,
+) -> list[dict[str, Any]]:
+    if isinstance(text, pd.DataFrame):
+        items = []
+        for index, row in text.iterrows():
+            items.append(
+                {
+                    "text": f"{row.get('title', '')}. {row.get('summary', '')}",
+                    "source_id": row.get("url") or f"{source_id}_{index + 1}",
+                    "source_type": row.get("source_type") or source_type,
+                    "published_date": row.get("published_date", ""),
+                    "company_name": row.get("company_name") or company_name or "",
+                    "industry": row.get("industry") or industry or "",
+                }
+            )
+        return items
+
     if isinstance(text, str):
-        return split_into_sentences(text)
+        return [
+            {
+                "text": text,
+                "source_id": source_id,
+                "source_type": source_type,
+                "published_date": "",
+                "company_name": company_name or "",
+                "industry": industry or "",
+            }
+        ]
 
-    sentences: list[str] = []
-    for item in text:
+    items = []
+    for index, item in enumerate(text):
         if isinstance(item, str):
-            sentences.extend(split_into_sentences(item))
-        elif isinstance(item, dict):
-            sentences.extend(split_into_sentences(str(item.get("text", ""))))
+            item_text = item
+            item_source_id = f"{source_id}_{index + 1}"
+        else:
+            item_text = str(item.get("text") or item.get("evidence_text") or "")
+            item_source_id = str(item.get("source_id") or item.get("chunk_id") or f"{source_id}_{index + 1}")
+        items.append(
+            {
+                "text": item_text,
+                "source_id": item_source_id,
+                "source_type": source_type,
+                "published_date": "",
+                "company_name": company_name or "",
+                "industry": industry or "",
+            }
+        )
+    return items
 
-    return sentences
+
+def _detect_countries(sentence: str) -> list[str]:
+    found = []
+    for country in COUNTRIES:
+        if re.search(rf"(?<![A-Za-z]){re.escape(country)}(?![A-Za-z])", sentence, flags=re.IGNORECASE):
+            found.append(country)
+    return list(dict.fromkeys(found))
+
+
+def _detect_percentages(sentence: str) -> list[str]:
+    return [match.group(0).strip() for match in PERCENTAGE_RE.finditer(sentence)]
 
 
 def _severity_hint(sentence: str) -> str:
-    """Assign a simple severity hint based on wording.
-
-    This is not final risk scoring. It only helps analysts prioritize evidence.
-    """
     lower_sentence = sentence.lower()
-
     if any(word in lower_sentence for word in HIGH_SEVERITY_WORDS):
         return "high"
-
     if any(word in lower_sentence for word in MEDIUM_SEVERITY_WORDS):
         return "medium"
-
     return "low"
 
 
-if __name__ == "__main__":
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-    )
-
-    sample_text = """
-    The company faces material liquidity risk due to working capital pressure.
-    Inventory levels increased because of weak customer demand.
-    Cybersecurity threats and data breach incidents may disrupt operations.
-    ESG requirements on carbon emissions may increase compliance costs.
-    """
-
-    results = extract_kri_mentions(sample_text, source_id="demo_report", source_type="annual_report")
-    print(results)
+def _recommended_follow_up(category: str, severity: str) -> str:
+    prefix = "優先覆核" if severity == "high" else "納入追蹤"
+    return f"{prefix}：請確認 {category} 的來源可靠性、財務影響、管理層是否已揭露，以及是否需要客戶訪談追問。"

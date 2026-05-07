@@ -17,15 +17,55 @@ Opens at **http://localhost:8501**
 
 ---
 
+## Streamlit Web App Demo
+
+This MVP lets a user:
+
+- upload an annual report PDF
+- fetch recent internet news via Google News RSS
+- extract KRI evidence from news and annual report text
+- generate a Traditional Chinese consulting report
+- export CSV, Excel, and Markdown outputs
+
+Run:
+
+```bash
+pip install -r requirements.txt
+streamlit run app.py
+```
+
+Default demo inputs:
+
+- `company_name`: Apple
+- `ticker`: AAPL
+- `industry_keyword`: consumer electronics semiconductor supply chain
+- `news_query`: Apple tariff supply chain China Taiwan semiconductor
+- `language`: zh-TW
+- `export_excel`: true
+
+Outputs:
+
+```text
+data/exports/news_articles.csv
+data/exports/annual_report_evidence.csv
+data/exports/kri_evidence.csv
+data/exports/dashboard_ready.csv
+data/reports/chinese_report.md
+data/reports/final_demo_summary_zh.md
+data/reports/industry_intelligence_demo.xlsx
+```
+
+---
+
 ## What It Does
 
 | Step | Action |
 |---|---|
 | 1 | Enter company name / ticker / industry in sidebar |
-| 2 | Toggle **Use demo data** (pre-loaded real TSMC/Taiwan semiconductor news) or uncheck for live RSS |
-| 3 | Optionally upload an annual report PDF |
-| 4 | Click **▶ 執行分析 \| Run Analysis** |
-| 5 | Select language → click **📄 產生報告 \| Generate Report** |
+| 2 | Enter a Google News RSS query |
+| 3 | Upload an annual report PDF |
+| 4 | Click **Run Analysis** |
+| 5 | Review Traditional Chinese report and download CSV / Excel / Markdown outputs |
 
 ---
 
@@ -33,11 +73,12 @@ Opens at **http://localhost:8501**
 
 | Tab | Contents |
 |---|---|
-| 公司基本資料 | Company profile from registry |
-| 新聞訊號擷取 | Filtered news articles with relevance scores |
-| KRI 風險證據 | **Full KPI/KRI dashboard**: filters, clean evidence table, COUNTIFS pivot table, working capital section, news vs annual report comparison |
-| 產業趨勢 | Trend notes (main trends, growth drivers, risks, DT opportunities) + timeline chart |
-| 產業情報簡報 | Metrics + charts + bilingual sectioned report + download |
+| 公司概況 | User-input company profile and dashboard summary |
+| 網路新聞 | Google News RSS articles |
+| 年報風險證據 | Extracted annual report sections, prioritizing Risk Factors and MD&A |
+| KRI Evidence | KRI evidence table and category × severity pivot |
+| 中文分析報告 | Traditional Chinese consulting-style report |
+| Downloads | CSV, Excel, and Markdown outputs |
 
 ---
 
